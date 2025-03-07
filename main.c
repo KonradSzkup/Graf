@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include "graph.h"
+#include "llm_graph.h"
 #include <locale.h>
 
 
@@ -26,18 +27,23 @@ int main() {
         printf("4. Wyświetl graf\n");
         printf("5. Zapisz graf do pliku\n");
         printf("6. Wczytaj graf z pliku\n");
-        printf("7. Wyjście\n");
+        printf("7. Stwórz graf przy pomocy graphviz\n");
+        printf("8. Rozomowa z LLM");
+        printf("9. Wyjście\n");
         printf("Wybór: ");
         scanf("%d", &choice);
         
         switch (choice) {
             case 1:
+                freeGraph(&graph);
+                Graph graph;
+                initializeGraph(&graph, numVertices);
                 generateRandomGraph(&graph);
                 break;
             case 2:
-                printf("Podaj krawędź (źródło, cel, waga): ");
-                scanf("%d %d %d", &src, &dest, &weight);
-                addEdge(&graph, src, dest, weight);
+                printf("Podaj krawędź (źródło, cel): ");
+                scanf("%d %d", &src, &dest);
+                addEdge(&graph, src, dest);
                 break;
             case 3:
                 printf("Podaj krawędź do usunięcia (źródło, cel): ");
@@ -54,7 +60,16 @@ int main() {
                 loadGraphFromFile(&graph, "graf.txt");
                 break;
             case 7:
+                exportGraphToDOT(&graph, "graf.dot");
+                generateGraph("graf.dot");
+                break;
+            case 8:
+                chatWithLLM();
+                break;
+            case 9:
+                freeGraph(&graph);
                 return 0;
+            
             default:
                 printf("Nieprawidłowy wybór!\n");
         }

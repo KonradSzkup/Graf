@@ -14,11 +14,25 @@ void initializeGraph(Graph* graph, int numVertices) {
     }
 }
 
+// Funkcja sprawdzająca, czy krawędź już istnieje
+int edgeExists(Graph* graph, int src, int dest) {
+    Edge* current = graph->vertices[src].edges;
+    while (current) {
+        if (current->destination == dest) {
+            return 1; // Krawędź już istnieje
+        }
+        current = current->next;
+    }
+    return 0;
+}
+
 // Funkcja dodająca krawędź do grafu
-void addEdge(Graph* graph, int src, int dest, int weight) {
+void addEdge(Graph* graph, int src, int dest) {
+    if (edgeExists(graph, src, dest)) {
+        return;
+    }
     Edge* newEdge = (Edge*)malloc(sizeof(Edge));
     newEdge->destination = dest;
-    newEdge->weight = weight;
     newEdge->next = graph->vertices[src].edges;
     graph->vertices[src].edges = newEdge;
 }
@@ -47,9 +61,8 @@ void generateRandomGraph(Graph* graph) {
         int edges = rand() % (graph->numVertices - 1) + 1;
         for (int j = 0; j < edges; j++) {
             int dest = rand() % graph->numVertices;
-            int weight = rand() % 10 + 1;
             if (dest != i) {
-                addEdge(graph, i, dest, weight);
+                addEdge(graph, i, dest);
             }
         }
     }
@@ -61,7 +74,7 @@ void printGraph(Graph* graph) {
         printf("%d -> ", i);
         Edge* current = graph->vertices[i].edges;
         while (current) {
-            printf("%d (waga: %d) ", current->destination, current->weight);
+            printf("%d ", current->destination);
             current = current->next;
         }
         printf("\n");
@@ -79,7 +92,7 @@ void saveGraphToFile(Graph* graph, const char* filename) {
     for (int i = 0; i < graph->numVertices; i++) {
         Edge* current = graph->vertices[i].edges;
         while (current) {
-            fprintf(file, "%d %d %d\n", i, current->destination, current->weight);
+            fprintf(file, "%d %d\n", i, current->destination);
             current = current->next;
         }
     }
@@ -96,10 +109,53 @@ void loadGraphFromFile(Graph* graph, const char* filename) {
     }
     fscanf(file, "%d", &graph->numVertices);
     initializeGraph(graph, graph->numVertices);
-    int src, dest, weight;
-    while (fscanf(file, "%d %d %d", &src, &dest, &weight) == 3) {
-        addEdge(graph, src, dest, weight);
+    int src, dest;
+    while (fscanf(file, "%d %d", &src, &dest) == 2) {
+        addEdge(graph, src, dest);
     }
     fclose(file);
     printf("Graf wczytany z pliku %s.\n", filename);
+}
+
+// Funkcja zapisu grafu do pliku DOT
+void exportGraphToDOT(Graph* graph, const char* filename) {
+    FILE* file = fopen(filename, "w");
+    if (!file) {
+        printf("Błąd zapisu do pliku DOT!\n");
+        return;
+    }
+    fprintf(file, "digraph G {\n");
+    for (int i = 0; i < graph->numVertices; i++) {
+        Edge* current = graph->vertices[i].edges;
+        while (current) {
+            fprintf(file, "    %d -> %d;\n", i, current->destination);
+            current = current->next;
+        }
+    }
+    fprintf(file, "}");
+    fclose(file);
+}
+
+void generateGraph(const char* filename) {
+    char command[256];
+    snprintf(command, sizeof(command), "dot -Tpng graf.dot -o graf.png", filename);
+    int result = system(command);
+    if (result == 0) {
+        printf("Wygenerowano obraz grafu: graf.png\n");
+    } else {
+        printf("Błąd podczas generowania obrazu.\n");
+    }
+}
+
+// Funkcja zwalniająca pamięć zajmowaną przez graf
+void freeGraph(Graph* graph) {
+    for (int i = 0; i < graph->numVertices; i++) {
+        Edge* current = graph->vertices[i].edges;
+        while (current) {
+            Edge* temp = current;
+            current = current->next;
+            free(temp);
+        }
+        graph->vertices[i].edges = NULL;
+    }
 }
