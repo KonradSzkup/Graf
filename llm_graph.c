@@ -2,81 +2,135 @@
 #include <stdlib.h>
 #include <string.h>
 #include <curl/curl.h>
-#include "graph.h"
+#include "cJSON.h"
 
-#define API_KEY "sk-...XE4A"
-#define API_URL "https://api.openai.com/v1/chat/completions"
+#define API_URL "http://localhost:11434/api/generate"
 
-// Struktura do przechowywania odpowiedzi API
-struct Memory {
-    char* response;
+// Bufor do przechowywania odpowiedzi API
+struct MemoryStruct {
+    char *memory;
     size_t size;
 };
 
-// Callback do zapisu odpowiedzi API
-static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp) {
-    size_t totalSize = size * nmemb;
-    struct Memory* mem = (struct Memory*)userp;
+// Funkcja do zapisywania odpowiedzi API w pamięci
+size_t write_callback(void *ptr, size_t size, size_t nmemb, void *userdata) {
+    size_t total_size = size * nmemb;
+    struct MemoryStruct *mem = (struct MemoryStruct *)userdata;
 
-    char* ptr = realloc(mem->response, mem->size + totalSize + 1);
-    if (ptr == NULL) return 0;
-
-    mem->response = ptr;
-    memcpy(&(mem->response[mem->size]), contents, totalSize);
-    mem->size += totalSize;
-    mem->response[mem->size] = '\0';
-
-    return totalSize;
-}
-
-// Funkcja pobierająca odpowiedź z LLM
-void chatWithLLM() {
-    CURL* curl;
-    CURLcode res;
-    struct Memory chunk = { .response = malloc(1), .size = 0 };
-
-    if (!chunk.response) {
-        printf("Błąd alokacji pamięci\n");
-        return;
+    char *new_memory = realloc(mem->memory, mem->size + total_size + 1);
+    if (new_memory == NULL) {
+        printf("Błąd alokacji pamięci!\n");
+        return 0;
     }
 
-    char userInput[256];
-    printf("Wpisz zapytanie do LLM: ");
-    getchar();  // Wyczyść bufor
-    fgets(userInput, sizeof(userInput), stdin);
-    userInput[strcspn(userInput, "\n")] = 0; // Usuń nową linię
+    mem->memory = new_memory;
+    memcpy(&(mem->memory[mem->size]), ptr, total_size);
+    mem->size += total_size;
+    mem->memory[mem->size] = '\0';  // Dodanie zakończenia stringa
+
+    return total_size;
+}
+
+// Funkcja do parsowania JSON i wyciągania odpowiedzi
+char* extract_full_response(const char *json_stream) {
+    // Bufor na pełną odpowiedź
+    size_t buffer_size = 1024;  // Początkowy rozmiar bufora
+    char *full_response = (char*)calloc(buffer_size, 1);  // Zapasowe 1024 bajty
+    if (!full_response) {
+        return strdup("Memory allocation error");
+    }
+
+    // Tymczasowy bufor na pojedynczą linię JSON
+    char *json_copy = strdup(json_stream);
+    if (!json_copy) {
+        free(full_response);
+        return strdup("Memory allocation error");
+    }
+
+    // Podział strumienia na linie (każda linia to osobny JSON)
+    char *line = strtok(json_copy, "\n");
+    while (line != NULL) {
+        cJSON *root = cJSON_Parse(line);
+        if (!root) {
+            free(json_copy);
+            free(full_response);
+            return strdup("Error parsing JSON");
+        }
+
+        // Sprawdzenie, czy odpowiedź jest obiektem
+        if (cJSON_IsObject(root)) {
+            cJSON *response = cJSON_GetObjectItem(root, "response");
+            if (response && cJSON_IsString(response)) {
+                // Sprawdzenie, czy bufor jest wystarczająco duży
+                size_t response_len = strlen(response->valuestring);
+                size_t current_len = strlen(full_response);
+
+                if (current_len + response_len + 1 > buffer_size) {
+                    buffer_size = current_len + response_len + 1;
+                    char *new_buffer = (char*)realloc(full_response, buffer_size);
+                    if (!new_buffer) {
+                        free(json_copy);
+                        free(full_response);
+                        cJSON_Delete(root);
+                        return strdup("Memory allocation error");
+                    }
+                    full_response = new_buffer;
+                }
+
+                // Dodanie fragmentu odpowiedzi do pełnej odpowiedzi
+                strcat(full_response, response->valuestring);
+            }
+        }
+
+        cJSON_Delete(root);
+        line = strtok(NULL, "\n");  // Przejście do następnej linii
+    }
+
+    free(json_copy);
+    return full_response;
+}
+
+// Funkcja wysyłająca zapytanie do chatbota i zapisująca odpowiedź do pliku
+void generateGraphFromChatbot(const char *prompt) {
+    CURL *curl;
+    CURLcode res;
+    struct MemoryStruct response;
+    response.memory = malloc(1);
+    response.size = 0;
 
     curl_global_init(CURL_GLOBAL_ALL);
     curl = curl_easy_init();
 
     if (curl) {
-        char postData[1024];
-        snprintf(postData, sizeof(postData), 
-            "{ \"model\": \"gpt-4\", \"messages\": [ { \"role\": \"user\", \"content\": \"%s\" } ] }", 
-            userInput);
-
-        struct curl_slist* headers = NULL;
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        headers = curl_slist_append(headers, "Authorization: Bearer " API_KEY);
-
         curl_easy_setopt(curl, CURLOPT_URL, API_URL);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData);
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void*)&chunk);
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&response);
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+
+        char post_data[512];
+        snprintf(post_data, sizeof(post_data), "{\"model\": \"mistral\", \"prompt\": \"%s\"}", prompt);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
 
         res = curl_easy_perform(curl);
-
         if (res != CURLE_OK) {
-            printf("Błąd zapytania do API: %s\n", curl_easy_strerror(res));
+            fprintf(stderr, "Błąd zapytania do API: %s\n", curl_easy_strerror(res));
         } else {
-            printf("\n💬 Odpowiedź LLM:\n%s\n", chunk.response);
+            // Zapisujemy odpowiedź do pliku tekstowego
+            FILE *file = fopen("graf.txt", "w");
+            if (file) {
+                fprintf(file, "%s\n", extract_full_response(response.memory));
+                fclose(file);
+                printf("Graf zapisany jako graf.txt\n");
+            } else {
+                printf("Błąd zapisu pliku graf.txt\n");
+            }
         }
 
         curl_easy_cleanup(curl);
-        curl_slist_free_all(headers);
     }
 
-    free(chunk.response);
     curl_global_cleanup();
+    free(response.memory);
 }
+
+
