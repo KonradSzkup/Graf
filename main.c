@@ -12,6 +12,7 @@ int main() {
     int numVertices, choice, src, dest, weight;
     Graph graph;
     char mode;
+    char nazwa_pliku[100];
 
     printf("Wybierz tryb:\n");
     printf("(M) Manualne tworzenie grafu\n");
@@ -80,10 +81,14 @@ int main() {
                 printGraph(&graph);
                 break;
             case 5:
-                saveGraphToFile(&graph, "graf.txt");
+                printf("Podaj nazwe pliku do którego chcesz zapisać graf: ");
+                scanf("%s", nazwa_pliku);
+                saveGraphToFile(&graph, nazwa_pliku);
                 break;
             case 6:
-                loadGraphFromFile(&graph, "graf.txt");
+                printf("Podaj nazwe pliku z którego chcesz wczytać graf: ");
+                scanf("%s", nazwa_pliku);
+                loadGraphFromFile(&graph, nazwa_pliku);
                 break;
             case 7:
                 exportGraphToDOT(&graph, "graf.dot");
