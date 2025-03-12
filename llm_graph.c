@@ -108,7 +108,7 @@ void generateGraphFromChatbot(const char *prompt) {
         curl_easy_setopt(curl, CURLOPT_POST, 1L);
 
         char post_data[512];
-        snprintf(post_data, sizeof(post_data), "{\"model\": \"mistral\", \"prompt\": \"%s\"}", prompt);
+        snprintf(post_data, sizeof(post_data), "{\"model\": \"mistral\", \"prompt\": \"%s Zwróć tylko graf w formacie: liczba_wierzchołków\\npołączenia. Wierzchołki numeruj od 0 i nie dodawaj zbędnego tekstu.\"}", prompt);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data);
 
         res = curl_easy_perform(curl);

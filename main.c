@@ -10,6 +10,7 @@
 int main() {
     setlocale(LC_ALL, "pl_PL.UTF-8");
     int numVertices, choice, src, dest, weight;
+    Graph graph;
     char mode;
     char nazwa_pliku[100];
 
@@ -30,17 +31,17 @@ int main() {
                 input[len - 1] = '\0';
             }
         generateGraphFromChatbot(input);
-        return 0;
+        freeGraph(&graph);
+        loadGraphFromFile(&graph, "graf.txt");
+    } else {
+        printf("Podaj liczbę wierzchołków: ");
+        scanf("%d", &numVertices);
+        if (numVertices > MAX_VERTICES || numVertices <= 0) {
+            printf("Nieprawidłowa liczba wierzchołków!\n");
+            return 1;
+        }
+        initializeGraph(&graph, numVertices);
     }
-    
-    printf("Podaj liczbę wierzchołków: ");
-    scanf("%d", &numVertices);
-    if (numVertices > MAX_VERTICES || numVertices <= 0) {
-        printf("Nieprawidłowa liczba wierzchołków!\n");
-        return 1;
-    }
-    Graph graph;
-    initializeGraph(&graph, numVertices);
     
     while (1) {
         printf("\nMENU:\n");
