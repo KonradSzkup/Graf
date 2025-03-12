@@ -38,7 +38,6 @@ void addEdge(Graph* graph, int src, int dest) {
 }
 
 // Funkcja usuwająca krawędź
-typedef struct Edge Edge;
 void removeEdge(Graph* graph, int src, int dest) {
     Edge** current = &graph->vertices[src].edges;
     while (*current) {

@@ -10,7 +10,6 @@
 int main() {
     setlocale(LC_ALL, "pl_PL.UTF-8");
     int numVertices, choice, src, dest, weight;
-    Graph graph;
     char mode;
     char nazwa_pliku[100];
 
@@ -40,6 +39,7 @@ int main() {
         printf("Nieprawidłowa liczba wierzchołków!\n");
         return 1;
     }
+    Graph graph;
     initializeGraph(&graph, numVertices);
     
     while (1) {
@@ -58,7 +58,6 @@ int main() {
         switch (choice) {
             case 1:
                 freeGraph(&graph);
-                Graph graph;
                 initializeGraph(&graph, numVertices);
                 generateRandomGraph(&graph);
                 break;
@@ -69,7 +68,9 @@ int main() {
                     if (src == -1 && dest == -1) {
                         break;
                     }
-                    addEdge(&graph, src, dest);
+                    if(src != dest && src >= 0 && src < numVertices && dest >= 0 && dest < numVertices) {
+                        addEdge(&graph, src, dest);
+                    }
                 }
                 break;
             case 3:
@@ -88,6 +89,7 @@ int main() {
             case 6:
                 printf("Podaj nazwe pliku z którego chcesz wczytać graf: ");
                 scanf("%s", nazwa_pliku);
+                freeGraph(&graph);
                 loadGraphFromFile(&graph, nazwa_pliku);
                 break;
             case 7:
